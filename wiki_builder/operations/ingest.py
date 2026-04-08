@@ -31,6 +31,7 @@ from ..llm.base import CostGuardError, LLMBackend
 from ..state import LLMCacheEntry, WikiState
 from ..wiki.article import article_wiki_path, write_article
 from ..wiki.crossref import compute_cross_references
+from ..wiki.obsidian import write_obsidian_graph
 from ..wiki.index import (
     append_log,
     folder_index_path,
@@ -229,6 +230,7 @@ def run_ingest(
     all_articles: list[dict] = []
 
     folder_stats: list[dict] = []
+    discovered_folders: set[str] = set()  # top-level source folder names
 
     for dirpath, dirnames, filenames in os.walk(source_root):
         current_dir = Path(dirpath)
@@ -242,6 +244,14 @@ def run_ingest(
 
         rel_dir = current_dir.relative_to(source_root)
         wiki_dir = wiki_root / source_root.name / rel_dir
+
+        # Track top-level folder names for Obsidian graph groups
+        # The source root itself maps to one group; each immediate subdir maps to another
+        rel_parts = rel_dir.parts
+        if len(rel_parts) == 0:
+            discovered_folders.add(source_root.name)
+        elif len(rel_parts) >= 1:
+            discovered_folders.add(rel_parts[0])
 
         # Filter files
         valid_files: list[Path] = []
@@ -430,6 +440,13 @@ def run_ingest(
                             "updated": "prior run",
                         })
         write_master_index(wiki_root, folder_stats, cfg)
+
+    # --- Obsidian graph color groups ---
+    if not dry_run and cfg.project.obsidian_vault and cfg.obsidian_groups.enabled:
+        try:
+            write_obsidian_graph(wiki_root, list(discovered_folders), cfg)
+        except Exception as e:
+            print(f"  [WARN] Could not write Obsidian graph groups: {e}", file=sys.stderr)
 
     # --- Persist state ---
     if not dry_run:

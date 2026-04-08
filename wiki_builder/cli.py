@@ -388,6 +388,15 @@ tagging:
     - markdown
     - other
 
+obsidian_groups:
+  enabled: true
+  # Optional: override auto-assigned colors per top-level folder.
+  # Keys are folder names; values are #RRGGBB hex strings.
+  # Unspecified folders get colors from a built-in palette.
+  # folder_colors:
+  #   MyFolder: "#e84545"
+  #   AnotherFolder: "#3d9be9"
+
 schema_file: "./CLAUDE.md"
 log_file: "./{wiki}/log.md"
 index_file: "./{wiki}/index.md"

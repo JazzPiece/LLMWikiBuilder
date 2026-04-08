@@ -110,6 +110,18 @@ class TaggingConfig:
     ])
 
 
+@dataclass
+class ObsidianGroupsConfig:
+    enabled: bool = True
+    # Per-folder color overrides. Keys are folder names (case-sensitive),
+    # values are #RRGGBB hex strings. Unspecified folders get palette colors.
+    # Example:
+    #   folder_colors:
+    #     Backstitch: "#e84545"
+    #     NEM: "#3d9be9"
+    folder_colors: dict[str, str] = field(default_factory=dict)
+
+
 # ---------------------------------------------------------------------------
 # Root config
 # ---------------------------------------------------------------------------
@@ -123,6 +135,7 @@ class WikiConfig:
     summarization: SummarizationConfig = field(default_factory=SummarizationConfig)
     cross_references: CrossRefConfig = field(default_factory=CrossRefConfig)
     tagging: TaggingConfig = field(default_factory=TaggingConfig)
+    obsidian_groups: ObsidianGroupsConfig = field(default_factory=ObsidianGroupsConfig)
     schema_file: str = "./CLAUDE.md"
     log_file: str = "./wiki/log.md"
     index_file: str = "./wiki/index.md"
@@ -250,6 +263,13 @@ def load_config(config_path: Path) -> WikiConfig:
         cfg.tagging = TaggingConfig(
             auto_tags=t.get("auto_tags", cfg.tagging.auto_tags),
             tag_taxonomy=t.get("tag_taxonomy", cfg.tagging.tag_taxonomy),
+        )
+
+    if "obsidian_groups" in raw:
+        og = raw["obsidian_groups"]
+        cfg.obsidian_groups = ObsidianGroupsConfig(
+            enabled=og.get("enabled", cfg.obsidian_groups.enabled),
+            folder_colors=og.get("folder_colors", cfg.obsidian_groups.folder_colors) or {},
         )
 
     cfg.schema_file = raw.get("schema_file", cfg.schema_file)
