@@ -122,7 +122,7 @@ def init(
 
     # Auto-detect extra exclude folders present in source
     auto_excludes = []
-    for hidden in (".git", ".obsidian", ".vscode", "node_modules", "__pycache__"):
+    for hidden in (".vscode", "node_modules", "__pycache__"):
         if (src_path / hidden).exists():
             auto_excludes.append(hidden)
 
@@ -338,6 +338,8 @@ source:
   path: "{source}"
   exclude_folders:
     - "{wiki_dirname}"      # never re-index wiki output
+    - ".obsidian"           # Obsidian vault metadata
+    - ".git"
 {extra_excludes}  exclude_patterns:
     - "~$*"
     - "Thumbs.db"

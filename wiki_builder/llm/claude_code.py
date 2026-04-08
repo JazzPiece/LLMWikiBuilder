@@ -13,9 +13,46 @@ import hashlib
 import re
 import shutil
 import subprocess
+from pathlib import Path
 
 from ..config import WikiConfig
 from .base import LLMBackend, LLMResponse
+
+# Glob patterns relative to Path.home() for common install locations.
+# Sorted newest-first when multiple matches exist (reverse=True on sorted()).
+_CLAUDE_HOME_GLOBS = [
+    # VSCode extension (active session binary — Windows)
+    ".vscode/extensions/anthropic.claude-code-*/resources/native-binary/claude.exe",
+    # Desktop app (Windows Store / MSIX)
+    "AppData/Local/Packages/Claude_*/LocalCache/Roaming/Claude/claude-code/*/claude.exe",
+    # Desktop app (traditional installer — Windows)
+    "AppData/Local/Programs/claude/claude.exe",
+]
+
+# Absolute paths to check on non-Windows platforms
+_CLAUDE_ABSOLUTE_PATHS = [
+    "/Applications/Claude.app/Contents/Resources/claude",
+    "/usr/local/bin/claude",
+]
+
+
+def _find_claude_binary() -> str | None:
+    """Return the path to the claude binary, or None if not found."""
+    if binary := shutil.which("claude"):
+        return binary
+    home = Path.home()
+    for pattern in _CLAUDE_HOME_GLOBS:
+        try:
+            matches = sorted(home.glob(pattern), reverse=True)
+        except Exception:
+            matches = []
+        for match in matches:
+            if match.exists():
+                return str(match)
+    for path in _CLAUDE_ABSOLUTE_PATHS:
+        if Path(path).exists():
+            return path
+    return None
 
 
 class ClaudeCodeBackend(LLMBackend):
@@ -25,10 +62,10 @@ class ClaudeCodeBackend(LLMBackend):
         self._prompt_cache: dict[str, LLMResponse] = {}
 
     def _find_claude(self) -> str:
-        binary = shutil.which("claude")
+        binary = _find_claude_binary()
         if not binary:
             raise RuntimeError(
-                "Claude Code CLI (`claude`) not found in PATH.\n"
+                "Claude Code CLI (`claude`) not found in PATH or common install locations.\n"
                 "Install it from https://claude.ai/code or switch to the "
                 "claude-api backend in wiki.yaml."
             )
