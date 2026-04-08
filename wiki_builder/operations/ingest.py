@@ -271,8 +271,7 @@ def run_ingest(
 
             # Windows MAX_PATH guard
             if len(str(wiki_file)) > cfg.wiki.max_path_length:
-                if verbose:
-                    print(f"  [PATH TOO LONG] {source_file.name}")
+                print(f"  [PATH TOO LONG] {source_file.name}", flush=True)
                 continue
 
             needs_ext = state.needs_extraction(source_file, wiki_file, incremental)
@@ -280,7 +279,7 @@ def run_ingest(
             if not needs_ext:
                 result.articles_skipped += 1
                 if verbose:
-                    print(f"  [skip]    {source_file.name}")
+                    print(f"  [skip]    {source_file.name}", flush=True)
 
                 # Still add to all_articles for crossref context
                 fs = state.get_file_state(source_file)
@@ -306,6 +305,7 @@ def run_ingest(
                 if llm is not None and cfg.summarization.enabled:
                     if state.needs_summarization(source_file, c_hash, cfg.llm.model):
                         if not dry_run:
+                            print(f"  [summarizing] {source_file.name}...", flush=True)
                             llm_result = summarize_file(
                                 source_file, file_type, raw_content, llm, system_prompt, cfg
                             )
@@ -340,18 +340,17 @@ def run_ingest(
                     new_files.append(source_file.name)
 
                 result.articles_written += 1
-                if verbose:
-                    tag = "[dry-run]" if dry_run else "[updated]"
-                    print(f"  {tag} {source_file.name}")
+                tag = "[dry-run]" if dry_run else "[updated]"
+                print(f"  {tag} {source_file.name}", flush=True)
 
             except CostGuardError as e:
-                print(f"\n[cost guard] {e}", file=sys.stderr)
+                print(f"\n[cost guard] {e}", file=sys.stderr, flush=True)
                 result.cost_aborted = True
                 if not dry_run:
                     state.save()
                 return result
             except Exception as e:
-                print(f"  [ERROR] {source_file}: {e}", file=sys.stderr)
+                print(f"  [ERROR] {source_file}: {e}", file=sys.stderr, flush=True)
                 if verbose:
                     traceback.print_exc()
                 result.errors += 1
@@ -390,7 +389,7 @@ def run_ingest(
                         subdirs, valid_files, excluded_here, cfg,
                     )
                 except Exception as e:
-                    print(f"  [ERROR] folder index for {current_dir.name}: {e}", file=sys.stderr)
+                    print(f"  [ERROR] folder index for {current_dir.name}: {e}", file=sys.stderr, flush=True)
 
         # Top-level folder stats for master index
         if current_dir == source_root:
@@ -402,11 +401,11 @@ def run_ingest(
                 "updated": date.today().isoformat(),
             })
 
-        print(f"[{current_dir.name}] {len(valid_files)} files | {len(subdirs)} subdirs")
+        print(f"[{current_dir.name}] {len(valid_files)} files | {len(subdirs)} subdirs", flush=True)
 
     # --- Cross-reference second pass ---
     if not dry_run and not no_crossref and llm is not None and changed_articles:
-        print(f"\nComputing cross-references for {len(changed_articles)} article(s)...")
+        print(f"\nComputing cross-references for {len(changed_articles)} article(s)...", flush=True)
         compute_cross_references(
             changed_articles, all_articles, llm, state, cfg, system_prompt
         )
