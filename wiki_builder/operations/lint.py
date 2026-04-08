@@ -67,7 +67,7 @@ def run_lint(
     report = LintReport()
 
     if not wiki_root.exists():
-        print("Wiki directory does not exist. Run `wiki-builder ingest` first.")
+        print("Wiki directory does not exist. Run `wikigen ingest` first.")
         return report
 
     # Collect all wiki .md files

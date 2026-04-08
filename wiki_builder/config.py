@@ -185,7 +185,7 @@ def load_config(config_path: Path) -> WikiConfig:
     if not config_path.exists():
         raise FileNotFoundError(
             f"Config file not found: {config_path}\n"
-            "Run `wiki-builder init` to create one."
+            "Run `wikigen init` to create one."
         )
 
     raw: dict[str, Any] = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}

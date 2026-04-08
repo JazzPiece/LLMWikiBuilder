@@ -16,7 +16,7 @@ When new files are added to the source folder, the wiki should:
 - For each new article, find existing articles with overlapping entities/topics
 - Ask LLM: "Should [[existing-page]] link to [[new-page]]?"
 - If confidence >= threshold, append the link and rewrite the existing article
-- Flag: `wiki-builder ingest --update-refs`
+- Flag: `wikigen ingest --update-refs`
 
 ---
 
@@ -46,7 +46,7 @@ Accept this change? [y/N/skip/quit]
 ```
 
 **Implementation plan:**
-- New command: `wiki-builder enhance [--auto-minor] [--dry-run]`
+- New command: `wikigen enhance [--auto-minor] [--dry-run]`
 - LLM reads each article + related pages, proposes a revised version
 - Diff is computed with Python `difflib`
 - Changes classified as minor/major based on % of lines changed (threshold configurable)

@@ -1,5 +1,5 @@
 [project]
-name = "llm-wiki-builder"
+name = "wikigen"
 version = "0.1.0"
 description = "Universal LLM-powered wiki builder for any folder — Obsidian-compatible output"
 requires-python = ">=3.11"
@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-wiki-builder = "wiki_builder.cli:cli"
+wikigen = "wiki_builder.cli:cli"
 
 [build-system]
 requires = ["setuptools>=42"]

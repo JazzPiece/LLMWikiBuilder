@@ -1,4 +1,4 @@
-# LLMWikiBuilder
+# wikigen
 
 A universal LLM-powered wiki builder. Point it at any folder, and it produces a structured, interlinked Markdown wiki — with LLM-generated summaries, cross-references, and Obsidian-compatible output.
 
@@ -37,20 +37,20 @@ Requires Python 3.11+. Optional extras are installed on demand with a helpful er
 
 ```bash
 # 1. Scaffold a new project (interactive)
-wiki-builder init --source ./my-docs --wiki ./wiki
+wikigen init --source ./my-docs --wiki ./wiki
 
 # 2. Extract only — no LLM, no cost
-wiki-builder ingest --no-llm
+wikigen ingest --no-llm
 
 # 3. Full LLM run
 export ANTHROPIC_API_KEY=sk-ant-...
-wiki-builder ingest
+wikigen ingest
 
 # 4. Ask a question
-wiki-builder query "What SQL queries touch the employee table?"
+wikigen query "What SQL queries touch the employee table?"
 
 # 5. Health check
-wiki-builder lint
+wikigen lint
 ```
 
 ---
@@ -167,7 +167,7 @@ schema_file: "./CLAUDE.md"
 
 ## CLAUDE.md (wiki schema)
 
-`wiki-builder init` generates a starter `CLAUDE.md`. It serves two purposes:
+`wikigen init` generates a starter `CLAUDE.md`. It serves two purposes:
 - **System prompt** for every LLM call — governs summary style, tag taxonomy, section structure
 - **Human documentation** of wiki conventions
 
@@ -237,18 +237,18 @@ Extracted text...
 ## CLI reference
 
 ```
-wiki-builder init   --source PATH --wiki PATH   Scaffold wiki.yaml + CLAUDE.md
-wiki-builder ingest [OPTIONS]                   Process files, write wiki
+wikigen init   --source PATH --wiki PATH   Scaffold wiki.yaml + CLAUDE.md
+wikigen ingest [OPTIONS]                   Process files, write wiki
   --incremental / --full                        Skip unchanged files (default: incremental)
   --no-llm                                      Extract only, no API calls
   --no-crossref                                 Skip cross-reference pass
   --dry-run                                     Show what would happen
   --verbose, -v                                 Print every file
   --llm-backend TEXT                            Override backend from config
-wiki-builder query  QUESTION                    Ask a question against the wiki
+wikigen query  QUESTION                    Ask a question against the wiki
   --save                                        Save answer as a new wiki page
-wiki-builder lint   [--fix]                     Health check: orphans, broken links, stale
-wiki-builder status                             Show wiki state summary
+wikigen lint   [--fix]                     Health check: orphans, broken links, stale
+wikigen status                             Show wiki state summary
 ```
 
 ---

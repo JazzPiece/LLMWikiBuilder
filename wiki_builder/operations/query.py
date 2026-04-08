@@ -45,7 +45,7 @@ def run_query(
 
     # Step 1: Read master index
     if not index_path.exists():
-        return "No wiki index found. Run `wiki-builder ingest` first to build the wiki."
+        return "No wiki index found. Run `wikigen ingest` first to build the wiki."
     index_content = index_path.read_text(encoding="utf-8")
 
     # Step 2: Ask LLM to identify relevant pages

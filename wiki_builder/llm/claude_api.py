@@ -110,7 +110,7 @@ class ClaudeAPIBackend(LLMBackend):
         cost = self.total_cost_usd()
 
         if not self._warned and cost >= self._warn_usd:
-            print(f"\n[wiki-builder] Cost warning: ${cost:.2f} spent so far (warn threshold: ${self._warn_usd:.2f})")
+            print(f"\n[wikigen] Cost warning: ${cost:.2f} spent so far (warn threshold: ${self._warn_usd:.2f})")
             self._warned = True
 
         if cost >= self._max_usd:

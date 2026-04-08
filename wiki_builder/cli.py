@@ -1,5 +1,5 @@
 """
-cli.py — Click-based CLI entry point for wiki-builder.
+cli.py — Click-based CLI entry point for wikigen.
 
 Commands:
   init    — Scaffold a new wiki project (wiki.yaml + CLAUDE.md)
@@ -54,9 +54,9 @@ def _create_llm(cfg: "WikiConfig", backend_override: str | None = None) -> "LLMB
 # ---------------------------------------------------------------------------
 
 @click.group()
-@click.version_option(package_name="llm-wiki-builder")
+@click.version_option(package_name="wikigen")
 def cli() -> None:
-    """wiki-builder — Universal LLM-powered wiki builder for any folder."""
+    """wikigen — Universal LLM-powered wiki builder for any folder."""
 
 
 # ---------------------------------------------------------------------------
@@ -86,7 +86,7 @@ def init(
 
     All options have safe defaults so the simplest usage is just:
 
-        wiki-builder init
+        wikigen init
 
     Run from the project folder you want to index.
     """
@@ -157,8 +157,8 @@ def init(
         click.echo(f"  Auto-excluded: {', '.join(auto_excludes)}")
 
     click.echo("\nNext steps:")
-    click.echo("  wiki-builder ingest --no-llm     # fast extraction, no API calls")
-    click.echo("  wiki-builder ingest              # full run with LLM distillation")
+    click.echo("  wikigen ingest --no-llm     # fast extraction, no API calls")
+    click.echo("  wikigen ingest              # full run with LLM distillation")
     click.echo("\nSecurity: never commit wiki.yaml if it contains a real API key.")
 
 
@@ -200,7 +200,7 @@ def ingest(
     state = WikiState(cfg.wiki_path())
     state.load()
 
-    _safe_rule(f"wiki-builder ingest - {cfg.project.name}")
+    _safe_rule(f"wikigen ingest - {cfg.project.name}")
     click.echo(f"  Source  : {cfg.source_path()}")
     click.echo(f"  Wiki    : {cfg.wiki_path()}")
     click.echo(f"  Mode    : {'incremental' if incremental else 'full rebuild'}")
@@ -254,7 +254,7 @@ def query(question: str, config: str, save: bool, llm_backend: str | None) -> No
     cfg = _load_config(config)
     llm = _create_llm(cfg, llm_backend)
 
-    _safe_rule("wiki-builder query")
+    _safe_rule("wikigen query")
     click.echo(f"  Q: {question}\n")
 
     answer = run_query(
@@ -282,7 +282,7 @@ def lint(config: str, fix: bool) -> None:
     state = WikiState(cfg.wiki_path())
     state.load()
 
-    _safe_rule("wiki-builder lint")
+    _safe_rule("wikigen lint")
     run_lint(cfg=cfg, state=state, fix=fix)
 
 
@@ -405,7 +405,7 @@ index_file: "./{wiki}/index.md"
 _CLAUDE_MD_TEMPLATE = """\
 # Wiki Schema — {name}
 
-This file is the LLM system prompt used on every wiki-builder operation.
+This file is the LLM system prompt used on every wikigen operation.
 Edit the sections below to tune behavior for your domain.
 
 ---

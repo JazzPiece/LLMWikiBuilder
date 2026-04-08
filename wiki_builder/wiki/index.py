@@ -153,7 +153,7 @@ Generated: {today}
 {table}
 
 ---
-*Built by `wiki-builder`. Run `wiki-builder ingest --incremental` to update.*
+*Built by `wikigen`. Run `wikigen ingest --incremental` to update.*
 """
     index_path = cfg.index_path()
     index_path.parent.mkdir(parents=True, exist_ok=True)
