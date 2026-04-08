@@ -82,8 +82,14 @@ def render_article(
     fence_lang = get_fence_lang(source_file)
     file_tag = get_file_tag(source_file)
 
-    # Tags: file type tag + LLM-suggested tags
+    # Tags: file type tag + folder tag + LLM-suggested tags
+    # folder tag drives Obsidian graph color groups without needing LLM
+    folder_name = wiki_file.parent.name
     tags = [file_tag]
+    if folder_name and folder_name.lower() not in tags:
+        # add a sanitized folder tag (e.g. "Backstitch" → "backstitch")
+        folder_tag = folder_name.lower().replace(" ", "-")
+        tags.append(folder_tag)
     if llm_result and llm_result.suggested_tags:
         for t in llm_result.suggested_tags:
             if t not in tags and t in cfg.tagging.tag_taxonomy:
@@ -94,14 +100,25 @@ def render_article(
     except Exception:
         size_str = "unknown"
 
+    # Derive project (top-level folder under wiki root)
+    try:
+        rel_parts = wiki_file.relative_to(wiki_root).parts
+        project_name = rel_parts[0] if len(rel_parts) > 1 else ""
+        subfolder_name = rel_parts[1] if len(rel_parts) > 2 else ""
+    except ValueError:
+        project_name = ""
+        subfolder_name = ""
+
     breadcrumb = make_breadcrumb(wiki_file.parent, wiki_root)
     source_uri = path_to_uri(source_file)
 
-    # Summary section
+    # Notes section (LLM-distilled content, or rule-based fallback)
     if llm_result and llm_result.summary:
-        summary_text = llm_result.summary
+        notes_text = llm_result.summary
+        notes_header = "## Notes"
     else:
-        summary_text = _rule_based_summary(file_type, raw_content, source_file)
+        notes_text = _rule_based_summary(file_type, raw_content, source_file)
+        notes_header = "## Summary"
 
     # Key entities section
     entities_block = ""
@@ -127,9 +144,12 @@ def render_article(
     # LLM model tag for frontmatter
     llm_model = cfg.llm.model if (llm_result and llm_result.summary) else ""
 
-    tags_yaml = "[" + ", ".join(tags) + "]"
-
     crumb_line = f"\n{breadcrumb}\n" if breadcrumb else ""
+
+    tags_yaml = "[" + ", ".join(tags) + "]"
+    project_line = f"project: {project_name}\n" if project_name else ""
+    subfolder_line = f"subfolder: {subfolder_name}\n" if subfolder_name else ""
+    llm_line = f"llm_model: {llm_model}\n" if llm_model else ""
 
     article = f"""---
 source: {source_file}
@@ -137,16 +157,16 @@ file_type: {file_type}
 file_size: {size_str}
 last_modified: {mod_date}
 wiki_updated: {today}
-tags: {tags_yaml}
+{project_line}{subfolder_line}{llm_line}tags: {tags_yaml}
 ---
 {crumb_line}
 # {source_file.stem}
 
 > [!info] {file_type} · {size_str} · Modified {mod_date}
 > [Open source file]({source_uri})
-## Summary
+{notes_header}
 
-{summary_text}
+{notes_text}
 {entities_block}
 ## Content
 
