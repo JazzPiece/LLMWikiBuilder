@@ -83,7 +83,13 @@ def mtime_str(path: Path) -> str:
 
 
 def path_to_uri(p: Path) -> str:
-    return "file:///" + str(p).replace("\\", "/").replace(" ", "%20")
+    """Return a properly percent-encoded file:// URI. Uses Path.as_uri() which
+    correctly encodes all special characters including [ ] ( ) # % spaces."""
+    try:
+        return Path(p).resolve().as_uri()
+    except ValueError:
+        # Fallback for relative paths on Windows
+        return "file:///" + str(p).replace("\\", "/").replace(" ", "%20")
 
 
 def file_hash(path: Path) -> str:

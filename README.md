@@ -192,36 +192,45 @@ Edit it to tune the LLM's behavior for your domain. The LLM reads it on every ru
 
 Each article is an Obsidian-compatible `.md` file:
 
-```markdown
+````markdown
 ---
-source: /path/to/file.docx
+source: "C:/path/to/file.docx"
+source_uri: "file:///C:/path/to/file.docx"
 file_type: Word Document
+file_size: 142 KB
 last_modified: 2025-11-14
 wiki_updated: 2026-04-08
-tags: [word, documentation]
+project: my-docs
+tags: [word, documentation, my-docs]
 ---
 
 [[index|Home]] > [[folder|Folder]] > **Title**
 
 # Title
 
-> [!info] Word Document · 142 KB · Modified 2025-11-14
+**Source:** [file.docx](file:///C:/path/to/file.docx) · Word Document · 142 KB · 2025-11-14
 
-## Summary
-LLM-generated summary...
+## Notes
+LLM-distilled content...
 
 ## Key Entities
-- **System:** InforDB
-- **Person:** Eric Johnson
+- InforDB
+- Eric Johnson
 
 ## Content
-```raw
+```
 Extracted text...
 ```
 
 ## Related
 - [[related-page]] — reason for the link
-```
+````
+
+**Source references:** Every article includes a clickable link back to the original file in both the YAML frontmatter (`source_uri`) and as a prominent `**Source:**` line at the top of the article body. File URIs are correctly percent-encoded (including filenames with spaces or brackets like `[report] Q3.pdf`) using Python's `Path.as_uri()`.
+
+**Folder-based tags:** The folder name is automatically added as a tag (e.g. `backstitch`, `nem`) for Obsidian graph coloring — no LLM required.
+
+**Section header:** `## Notes` when LLM-distilled; `## Summary` for extraction-only (`--no-llm`) mode.
 
 ---
 
@@ -259,6 +268,8 @@ See [`example-configs/`](example-configs/) for ready-to-use setups:
 - **Source content is sent to the LLM**: Documents you index will be sent to whatever backend you configure. Use a local backend (Ollama, LM Studio) for sensitive content.
 - **Prompt injection**: Source documents could theoretically contain text designed to manipulate the LLM's output. The tool uses structured XML-style delimiters to reduce this risk, but no mitigation is foolproof. Review LLM-generated summaries for sensitive wikis.
 - **`base_url`**: When using `openai-compat`, the `base_url` you configure receives all document content. Only point it at servers you trust.
+- **Source file paths in wiki articles**: Each generated article embeds the absolute path to its source file as a `file://` URI. This is intentional — it lets you click back to the original — but means wiki articles should not be shared publicly if your file paths contain sensitive directory names.
+- **File URI encoding**: Source URIs are generated with `Path.as_uri()` which correctly percent-encodes all special characters (spaces, brackets, `#`, etc.) — preventing broken links from filenames like `[report] Q3.pdf`.
 
 ---
 

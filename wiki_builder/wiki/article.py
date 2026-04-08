@@ -152,7 +152,8 @@ def render_article(
     llm_line = f"llm_model: {llm_model}\n" if llm_model else ""
 
     article = f"""---
-source: {source_file}
+source: "{source_file}"
+source_uri: "{source_uri}"
 file_type: {file_type}
 file_size: {size_str}
 last_modified: {mod_date}
@@ -162,8 +163,8 @@ wiki_updated: {today}
 {crumb_line}
 # {source_file.stem}
 
-> [!info] {file_type} · {size_str} · Modified {mod_date}
-> [Open source file]({source_uri})
+**Source:** [{source_file.name}]({source_uri}) · {file_type} · {size_str} · {mod_date}
+
 {notes_header}
 
 {notes_text}
