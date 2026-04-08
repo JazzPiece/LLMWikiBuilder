@@ -1,0 +1,59 @@
+project:
+  name: "Personal Notes"
+  description: "Personal knowledge base — articles, journal entries, book notes"
+  obsidian_vault: true
+
+source:
+  path: "./notes"
+  exclude_folders: []
+  exclude_patterns:
+    - "~$*"
+    - "Thumbs.db"
+    - ".DS_Store"
+  max_file_size_mb: 20
+
+wiki:
+  path: "./wiki"
+  max_path_length: 240
+
+llm:
+  backend: "claude-api"
+  model: "claude-sonnet-4-6"
+  api_key_env: "ANTHROPIC_API_KEY"
+  max_input_chars: 15000
+  chunk_overlap_chars: 500
+  cache: true
+  cost_guard:
+    max_usd_per_run: 2.00
+    warn_usd_per_run: 0.50
+
+summarization:
+  enabled: true
+  max_summary_words: 150
+  include_key_entities: true
+
+cross_references:
+  enabled: true
+  min_confidence: 0.75
+  max_links_per_article: 8
+
+tagging:
+  auto_tags: true
+  tag_taxonomy:
+    - journal
+    - article
+    - book-notes
+    - idea
+    - reference
+    - goal
+    - health
+    - work
+    - learning
+    - project
+    - person
+    - place
+    - other
+
+schema_file: "./CLAUDE.md"
+log_file: "./wiki/log.md"
+index_file: "./wiki/index.md"

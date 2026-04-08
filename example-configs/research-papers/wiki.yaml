@@ -1,0 +1,57 @@
+project:
+  name: "Research Papers"
+  description: "Academic research knowledge base — papers, notes, and synthesis"
+  obsidian_vault: true
+
+source:
+  path: "./papers"
+  exclude_folders: []
+  exclude_patterns:
+    - "~$*"
+    - ".DS_Store"
+  max_file_size_mb: 100
+
+wiki:
+  path: "./wiki"
+  max_path_length: 240
+
+llm:
+  # Using Ollama for local, free inference — no API costs
+  backend: "openai-compat"
+  base_url: "http://localhost:11434/v1"
+  model: "llama3.2"
+  api_key: "ollama"
+  max_input_chars: 12000
+  chunk_overlap_chars: 800
+  cache: true
+
+summarization:
+  enabled: true
+  max_summary_words: 200
+  include_key_entities: true
+
+cross_references:
+  enabled: true
+  min_confidence: 0.8
+  max_links_per_article: 12
+
+tagging:
+  auto_tags: true
+  tag_taxonomy:
+    - paper
+    - survey
+    - dataset
+    - method
+    - result
+    - theory
+    - concept
+    - author
+    - venue
+    - replication
+    - critique
+    - foundational
+    - recent
+
+schema_file: "./CLAUDE.md"
+log_file: "./wiki/log.md"
+index_file: "./wiki/index.md"
