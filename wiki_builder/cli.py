@@ -66,8 +66,8 @@ def cli() -> None:
 @cli.command()
 @click.option("--source", default=".", show_default=True, type=click.Path(),
               help="Source folder to index (default: current directory).")
-@click.option("--wiki", default="./wiki", show_default=True,
-              help="Wiki output folder.")
+@click.option("--wiki", default=None,
+              help="Wiki output folder (default: <source>/wiki).")
 @click.option("--name", default="", help="Project name. Defaults to source folder name.")
 @click.option("--backend", default="claude-code",
               type=click.Choice(["claude-api", "openai-compat", "claude-code"], case_sensitive=False),
@@ -78,7 +78,7 @@ def cli() -> None:
 @click.option("--base-url", default="", help="Base URL for openai-compat backend.")
 @click.option("--force", is_flag=True, help="Overwrite existing wiki.yaml without prompting.")
 def init(
-    source: str, wiki: str, name: str,
+    source: str, wiki: str | None, name: str,
     backend: str, model: str, api_key_env: str, base_url: str,
     force: bool,
 ) -> None:
@@ -88,12 +88,18 @@ def init(
 
         wikigen init
 
-    Run from the project folder you want to index.
+    Run from the folder that contains the files you want to index.
+    The wiki is created inside the source folder by default.
     """
     cwd = Path.cwd()
+    src_path = (cwd / source).resolve()
 
     if not name:
-        name = Path(source).resolve().name
+        name = src_path.name
+
+    # Default wiki to <source>/wiki
+    if not wiki:
+        wiki = str(src_path / "wiki")
 
     if not model:
         model = {
@@ -115,7 +121,6 @@ def init(
     )
 
     # Auto-detect extra exclude folders present in source
-    src_path = (cwd / source).resolve()
     auto_excludes = []
     for hidden in (".git", ".obsidian", ".vscode", "node_modules", "__pycache__"):
         if (src_path / hidden).exists():
@@ -126,11 +131,14 @@ def init(
         extra_excludes += f'    - "{folder}"\n'
 
     wiki_dirname = Path(wiki).name  # e.g. "./wiki" -> "wiki"
+    # Normalize to forward slashes so Windows paths don't break YAML double-quoted strings
+    source_yaml = str(source).replace("\\", "/")
+    wiki_yaml_path = str(wiki).replace("\\", "/")
     wiki_yaml.write_text(
         _WIKI_YAML_TEMPLATE.format(
             name=name,
-            source=source,
-            wiki=wiki,
+            source=source_yaml,
+            wiki=wiki_yaml_path,
             wiki_dirname=wiki_dirname,
             backend=backend,
             model=model,
@@ -398,8 +406,8 @@ obsidian_groups:
   #   AnotherFolder: "#3d9be9"
 
 schema_file: "./CLAUDE.md"
-log_file: "./{wiki}/log.md"
-index_file: "./{wiki}/index.md"
+log_file: "{wiki}/log.md"
+index_file: "{wiki}/index.md"
 """
 
 _CLAUDE_MD_TEMPLATE = """\

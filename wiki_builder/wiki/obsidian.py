@@ -153,4 +153,4 @@ def write_obsidian_graph(wiki_root: Path, folders: list[str], cfg: WikiConfig) -
     }
 
     graph_path.write_text(json.dumps(graph, indent=2), encoding="utf-8")
-    print(f"  Obsidian graph groups: {len(our_groups)} folder(s) → {graph_path}")
+    print(f"  Obsidian graph groups: {len(our_groups)} folder(s) -> {graph_path}")

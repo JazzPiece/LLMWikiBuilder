@@ -153,10 +153,12 @@ class WikiConfig:
         return (self._config_dir / self.schema_file).resolve()
 
     def log_path(self) -> Path:
-        return (self._config_dir / self.log_file).resolve()
+        p = Path(self.log_file)
+        return p if p.is_absolute() else (self._config_dir / p).resolve()
 
     def index_path(self) -> Path:
-        return (self._config_dir / self.index_file).resolve()
+        p = Path(self.index_file)
+        return p if p.is_absolute() else (self._config_dir / p).resolve()
 
     def text_extensions_set(self) -> set[str]:
         return {e if e.startswith(".") else f".{e}" for e in self.source.text_extensions}
