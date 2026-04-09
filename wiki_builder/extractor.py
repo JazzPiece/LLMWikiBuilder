@@ -35,6 +35,9 @@ FILE_TAG: dict[str, str] = {
     ".ts": "typescript",
     ".js": "javascript",
     ".md": "markdown",
+    ".eml": "other", ".msg": "other",
+    ".vsdx": "other",
+    ".vtt": "other",
 }
 
 FENCE_LANG: dict[str, str] = {
@@ -236,6 +239,70 @@ def _extract_pptx(path: Path) -> tuple[str, str]:
         return "PowerPoint", f"*(Extraction error: {e})*"
 
 
+def _extract_eml(path: Path) -> tuple[str, str]:
+    """Extract headers and body text from .eml email files."""
+    import email
+    from email import policy as email_policy
+    try:
+        raw = path.read_bytes()
+        msg = email.message_from_bytes(raw, policy=email_policy.default)
+        parts: list[str] = []
+        for header in ("Subject", "From", "To", "Cc", "Date"):
+            val = msg.get(header, "")
+            if val:
+                parts.append(f"**{header}:** {val}")
+        parts.append("")
+        if msg.is_multipart():
+            for part in msg.walk():
+                if part.get_content_type() == "text/plain":
+                    try:
+                        body_bytes = part.get_payload(decode=True)
+                        charset = part.get_content_charset() or "utf-8"
+                        parts.append(body_bytes.decode(charset, errors="replace"))
+                    except Exception:
+                        pass
+        else:
+            if msg.get_content_type() == "text/plain":
+                try:
+                    body_bytes = msg.get_payload(decode=True)
+                    charset = msg.get_content_charset() or "utf-8"
+                    parts.append(body_bytes.decode(charset, errors="replace"))
+                except Exception:
+                    parts.append(str(msg.get_payload()))
+        return "Email", "\n".join(parts)
+    except Exception as e:
+        return "Email", f"*(Extraction error: {e})*"
+
+
+def _extract_vsdx(path: Path) -> tuple[str, str]:
+    """Extract shape text from Visio .vsdx files (ZIP + XML)."""
+    import zipfile
+    import xml.etree.ElementTree as ET
+    try:
+        texts: list[str] = []
+        with zipfile.ZipFile(str(path)) as zf:
+            page_files = sorted(
+                n for n in zf.namelist()
+                if n.startswith("visio/pages/page") and n.endswith(".xml")
+            )
+            for pf in page_files:
+                page_num = pf.replace("visio/pages/page", "").replace(".xml", "")
+                with zf.open(pf) as f:
+                    tree = ET.parse(f)
+                    root = tree.getroot()
+                    page_texts: list[str] = []
+                    for elem in root.iter():
+                        # ElementTree strips namespace prefixes — match local name
+                        local = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
+                        if local == "Text" and elem.text and elem.text.strip():
+                            page_texts.append(elem.text.strip())
+                    if page_texts:
+                        texts.append(f"**Page {page_num}:**\n" + "\n".join(page_texts))
+        return "Visio Diagram", "\n\n".join(texts) if texts else "*(No text content found in diagram)*"
+    except Exception as e:
+        return "Visio Diagram", f"*(Extraction error: {e})*"
+
+
 # ---------------------------------------------------------------------------
 # Public extraction entry point
 # ---------------------------------------------------------------------------
@@ -262,6 +329,10 @@ def extract_text(path: Path, cfg: WikiConfig) -> tuple[str, str]:
         return _extract_pdf(path)
     if ext == ".pptx":
         return _extract_pptx(path)
+    if ext in (".eml", ".msg"):
+        return _extract_eml(path)
+    if ext == ".vsdx":
+        return _extract_vsdx(path)
     if ext in rich_exts:
         # Fallback for any rich ext without a dedicated extractor
         size = format_size(path.stat().st_size) if path.exists() else "unknown"

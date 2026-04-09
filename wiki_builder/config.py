@@ -39,9 +39,11 @@ class SourceConfig:
         ".xml", ".json", ".md", ".bat", ".ps1", ".sh",
         ".lpd", ".log", ".ini", ".cfg", ".yaml", ".yml",
         ".js", ".ts", ".css", ".vbs", ".wsf", ".toml",
+        ".vtt",
     ])
     rich_extensions: list[str] = field(default_factory=lambda: [
         ".docx", ".dotx", ".xlsx", ".xltx", ".pdf", ".pptx",
+        ".eml", ".msg", ".vsdx",
     ])
 
 
