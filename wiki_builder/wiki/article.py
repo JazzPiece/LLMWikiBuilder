@@ -151,7 +151,7 @@ def render_article(
     subfolder_line = f"subfolder: {subfolder_name}\n" if subfolder_name else ""
     llm_line = f"llm_model: {llm_model}\n" if llm_model else ""
 
-    source_path_str = str(source_file).replace("\\", "/")
+    source_path_str = str(source_file).replace("\\", "/").replace('"', '\\"')
     article = f"""---
 source: "{source_path_str}"
 source_uri: "{source_uri}"

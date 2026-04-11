@@ -15,6 +15,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+_SAFE_MODEL_RE = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9._\-]*[a-zA-Z0-9])?$")
+
 from ..config import WikiConfig
 from .base import LLMBackend, LLMResponse
 
@@ -82,6 +84,8 @@ class ClaudeCodeBackend(LLMBackend):
 
         cmd = [claude, "--print"]
         if self._model:
+            if not _SAFE_MODEL_RE.match(self._model):
+                raise ValueError(f"Invalid model name: {self._model!r}")
             cmd += ["--model", self._model]
 
         result = subprocess.run(

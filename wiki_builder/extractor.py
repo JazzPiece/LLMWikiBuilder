@@ -117,6 +117,8 @@ def content_hash(text: str) -> str:
 
 def should_skip_file(path: Path, cfg: WikiConfig) -> bool:
     """Return True if this file should be excluded from processing."""
+    if path.is_symlink():
+        return True
     name = path.name
     for pattern in cfg.source.exclude_patterns:
         if fnmatch.fnmatch(name, pattern):

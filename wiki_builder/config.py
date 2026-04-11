@@ -80,10 +80,11 @@ class LLMConfig:
     cost_guard: CostGuardConfig = field(default_factory=CostGuardConfig)
 
     def resolve_api_key(self) -> str:
-        """Return the API key from literal value or environment variable."""
-        if self.api_key:
-            return self.api_key
-        return os.environ.get(self.api_key_env, "")
+        """Return the API key, preferring the environment variable over a literal value."""
+        env_key = os.environ.get(self.api_key_env, "")
+        if env_key:
+            return env_key
+        return self.api_key
 
 
 @dataclass

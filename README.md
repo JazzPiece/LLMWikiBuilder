@@ -36,15 +36,19 @@ Requires Python 3.11+. Optional extras are installed on demand with a helpful er
 ## Quick start
 
 ```bash
-# 1. Scaffold a new project (interactive)
+# 1. Scaffold a new project
 wikigen init --source ./my-docs --wiki ./wiki
 
 # 2. Extract only — no LLM, no cost
 wikigen ingest --no-llm
 
-# 3. Full LLM run
+# 3. Full LLM run (Anthropic)
 export ANTHROPIC_API_KEY=sk-ant-...
 wikigen ingest
+
+# 3. Full LLM run (OpenAI)
+export OPENAI_API_KEY=sk-...
+wikigen ingest --llm-backend openai-compat
 
 # 4. Ask a question
 wikigen query "What SQL queries touch the employee table?"
@@ -98,6 +102,13 @@ llm:
   base_url: "https://api.groq.com/openai/v1"
   model: llama-3.3-70b-versatile
   api_key_env: GROQ_API_KEY
+
+# OpenAI
+llm:
+  backend: openai-compat
+  base_url: "https://api.openai.com/v1"
+  model: gpt-4o-mini
+  api_key_env: OPENAI_API_KEY
 
 # Claude Code CLI (uses your installed claude binary)
 llm:
@@ -245,6 +256,7 @@ wikigen ingest [OPTIONS]                   Process files, write wiki
   --dry-run                                     Show what would happen
   --verbose, -v                                 Print every file
   --llm-backend TEXT                            Override backend from config
+  --log-file PATH                               Write full run transcript to file
 wikigen query  QUESTION                    Ask a question against the wiki
   --save                                        Save answer as a new wiki page
 wikigen lint   [--fix]                     Health check: orphans, broken links, stale
