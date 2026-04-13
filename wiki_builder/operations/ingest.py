@@ -11,7 +11,9 @@ import json
 import os
 import re
 import sys
+import threading
 import traceback
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -177,6 +179,61 @@ def summarize_file(
 
 
 # ---------------------------------------------------------------------------
+# Helpers for parallel processing
+# ---------------------------------------------------------------------------
+
+def _matches_only_pattern(source_file: Path, source_root: Path, pattern: str) -> bool:
+    """Return True if source_file matches an --only glob pattern."""
+    import fnmatch
+    if fnmatch.fnmatch(source_file.name, pattern):
+        return True
+    try:
+        rel = str(source_file.relative_to(source_root)).replace("\\", "/")
+        if fnmatch.fnmatch(rel, pattern):
+            return True
+    except ValueError:
+        pass
+    return False
+
+
+def _do_extract_and_summarize(
+    source_file: Path,
+    cfg: WikiConfig,
+    state: "WikiState",
+    llm: "LLMBackend | None",
+    system_prompt: str,
+    quiet: bool,
+    dry_run: bool,
+    print_lock: threading.Lock,
+) -> tuple[str, str, "LLMCacheEntry | None", str, str, bool]:
+    """
+    Extract text + optionally LLM-summarize one file.
+    Returns (file_type, raw_content, llm_result, c_hash, f_hash, did_summarize).
+    Raises on error — caller handles exceptions.
+    """
+    file_type, raw_content = extract_text(source_file, cfg)
+    c_hash = content_hash(raw_content)
+    f_hash = file_hash(source_file)
+
+    llm_result: LLMCacheEntry | None = None
+    did_summarize = False
+
+    if llm is not None and cfg.summarization.enabled and not dry_run:
+        if state.needs_summarization(source_file, c_hash, cfg.llm.model):
+            if not quiet:
+                with print_lock:
+                    print(f"  [summarizing] {source_file.name}...", flush=True)
+            llm_result = summarize_file(
+                source_file, file_type, raw_content, llm, system_prompt, cfg
+            )
+            did_summarize = True
+        else:
+            llm_result = state.get_llm_cache(c_hash)
+
+    return file_type, raw_content, llm_result, c_hash, f_hash, did_summarize
+
+
+# ---------------------------------------------------------------------------
 # Result dataclass
 # ---------------------------------------------------------------------------
 
@@ -202,6 +259,9 @@ def run_ingest(
     dry_run: bool,
     verbose: bool,
     no_crossref: bool = False,
+    quiet: bool = False,
+    workers: int = 1,
+    only_pattern: str | None = None,
 ) -> IngestResult:
     """
     Full ingest pipeline:
@@ -265,11 +325,18 @@ def run_ingest(
         changed_files: list[str] = []
 
         # --- Per-file processing ---
+        # Step 1: pre-filter — only-pattern, path-length, needs_extraction checks
+        files_to_process: list[tuple[Path, Path]] = []
+
         for source_file in valid_files:
             result.total_files += 1
+
+            if only_pattern and not _matches_only_pattern(source_file, source_root, only_pattern):
+                result.articles_skipped += 1
+                continue
+
             wiki_file = article_wiki_path(source_file, wiki_dir)
 
-            # Windows MAX_PATH guard
             if len(str(wiki_file)) > cfg.wiki.max_path_length:
                 print(f"  [PATH TOO LONG] {source_file.name}", flush=True)
                 continue
@@ -278,10 +345,8 @@ def run_ingest(
 
             if not needs_ext:
                 result.articles_skipped += 1
-                if verbose:
+                if verbose and not quiet:
                     print(f"  [skip]    {source_file.name}", flush=True)
-
-                # Still add to all_articles for crossref context
                 fs = state.get_file_state(source_file)
                 if fs and fs.llm_cache_key:
                     cached = state.get_llm_cache(fs.llm_cache_key)
@@ -295,64 +360,88 @@ def run_ingest(
                         })
                 continue
 
-            try:
-                file_type, raw_content = extract_text(source_file, cfg)
-                c_hash = content_hash(raw_content)
-                f_hash = file_hash(source_file)
+            files_to_process.append((source_file, wiki_file))
 
-                # LLM summarization
-                llm_result: LLMCacheEntry | None = None
-                if llm is not None and cfg.summarization.enabled:
-                    if state.needs_summarization(source_file, c_hash, cfg.llm.model):
-                        if not dry_run:
-                            print(f"  [summarizing] {source_file.name}...", flush=True)
-                            llm_result = summarize_file(
-                                source_file, file_type, raw_content, llm, system_prompt, cfg
-                            )
-                            state.update_summarization(source_file, c_hash, cfg.llm.model, llm_result)
-                            result.articles_summarized += 1
-                    else:
-                        llm_result = state.get_llm_cache(c_hash)
+        # Step 2: extract + summarize, then write articles (main thread handles state/IO)
+        print_lock = threading.Lock()
 
-                if not dry_run:
-                    write_article(
-                        source_file, wiki_file, wiki_root,
-                        file_type, raw_content, llm_result, cfg,
-                    )
-                    state.update_extraction(source_file, wiki_file, f_hash, c_hash)
+        def _worker(sf: Path):
+            return _do_extract_and_summarize(
+                sf, cfg, state, llm, system_prompt, quiet, dry_run, print_lock
+            )
 
-                # Track for cross-ref
-                article_entry = {
-                    "slug": slugify(source_file.stem),
-                    "title": source_file.stem,
-                    "summary": llm_result.summary if llm_result else "",
-                    "entities": llm_result.key_entities if llm_result else [],
-                    "source_file": str(source_file),
-                }
-                all_articles.append(article_entry)
-                changed_articles.append(article_entry)
+        def _handle_result(source_file: Path, wiki_file: Path, res: tuple) -> None:
+            file_type, raw_content, llm_result, c_hash, f_hash, did_summarize = res
 
-                old_state = state.get_file_state(source_file)
-                if old_state and old_state.hash:
-                    changed_files.append(source_file.name)
-                else:
-                    new_files.append(source_file.name)
+            if did_summarize and not dry_run:
+                state.update_summarization(source_file, c_hash, cfg.llm.model, llm_result)
+                result.articles_summarized += 1
 
-                result.articles_written += 1
+            if not dry_run:
+                write_article(
+                    source_file, wiki_file, wiki_root,
+                    file_type, raw_content, llm_result, cfg,
+                )
+                state.update_extraction(source_file, wiki_file, f_hash, c_hash)
+
+            article_entry = {
+                "slug": slugify(source_file.stem),
+                "title": source_file.stem,
+                "summary": llm_result.summary if llm_result else "",
+                "entities": llm_result.key_entities if llm_result else [],
+                "source_file": str(source_file),
+            }
+            all_articles.append(article_entry)
+            changed_articles.append(article_entry)
+
+            old_st = state.get_file_state(source_file)
+            if old_st and old_st.hash:
+                changed_files.append(source_file.name)
+            else:
+                new_files.append(source_file.name)
+
+            result.articles_written += 1
+            if not quiet:
                 tag = "[dry-run]" if dry_run else "[updated]"
                 print(f"  {tag} {source_file.name}", flush=True)
 
-            except CostGuardError as e:
-                print(f"\n[cost guard] {e}", file=sys.stderr, flush=True)
-                result.cost_aborted = True
-                if not dry_run:
-                    state.save()
-                return result
-            except Exception as e:
-                print(f"  [ERROR] {source_file}: {e}", file=sys.stderr, flush=True)
-                if verbose:
-                    traceback.print_exc()
-                result.errors += 1
+        if workers > 1 and files_to_process and not dry_run:
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                future_to_pair = {
+                    executor.submit(_worker, sf): (sf, wf)
+                    for sf, wf in files_to_process
+                }
+                for future in as_completed(future_to_pair):
+                    source_file, wiki_file = future_to_pair[future]
+                    try:
+                        _handle_result(source_file, wiki_file, future.result())
+                    except CostGuardError as e:
+                        print(f"\n[cost guard] {e}", file=sys.stderr, flush=True)
+                        result.cost_aborted = True
+                        executor.shutdown(wait=False, cancel_futures=True)
+                        if not dry_run:
+                            state.save()
+                        return result
+                    except Exception as e:
+                        print(f"  [ERROR] {source_file}: {e}", file=sys.stderr, flush=True)
+                        if verbose:
+                            traceback.print_exc()
+                        result.errors += 1
+        else:
+            for source_file, wiki_file in files_to_process:
+                try:
+                    _handle_result(source_file, wiki_file, _worker(source_file))
+                except CostGuardError as e:
+                    print(f"\n[cost guard] {e}", file=sys.stderr, flush=True)
+                    result.cost_aborted = True
+                    if not dry_run:
+                        state.save()
+                    return result
+                except Exception as e:
+                    print(f"  [ERROR] {source_file}: {e}", file=sys.stderr, flush=True)
+                    if verbose:
+                        traceback.print_exc()
+                    result.errors += 1
 
         # --- Detect deleted files ---
         current_keys = {str(f) for f in valid_files}

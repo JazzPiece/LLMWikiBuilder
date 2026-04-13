@@ -217,6 +217,11 @@ def init(
 @click.option("--no-crossref", is_flag=True, help="Skip cross-reference pass.")
 @click.option("--dry-run", is_flag=True, help="Show what would be done without writing files.")
 @click.option("--verbose", "-v", is_flag=True, help="Print every file processed.")
+@click.option("--quiet", "-q", is_flag=True, help="Suppress per-file output; show summary only.")
+@click.option("--workers", default=1, show_default=True, type=int,
+              help="Parallel LLM workers. Use 2-4 to speed up large runs.")
+@click.option("--only", "only_pattern", default=None, type=str,
+              help="Only process files matching this glob, e.g. '*.pdf' or 'NEM/*'.")
 @click.option("--llm-backend", default=None, type=str,
               help="Override LLM backend from config (claude-api, openai-compat, claude-code).")
 @click.option("--log-file", default=None, type=click.Path(),
@@ -228,15 +233,18 @@ def ingest(
     no_crossref: bool,
     dry_run: bool,
     verbose: bool,
+    quiet: bool,
+    workers: int,
+    only_pattern: str | None,
     llm_backend: str | None,
     log_file: str | None,
 ) -> None:
     """Process source files and write wiki articles."""
     if log_file:
         with _tee_output(Path(log_file)):
-            _run_ingest(config, incremental, no_llm, no_crossref, dry_run, verbose, llm_backend)
+            _run_ingest(config, incremental, no_llm, no_crossref, dry_run, verbose, quiet, workers, only_pattern, llm_backend)
     else:
-        _run_ingest(config, incremental, no_llm, no_crossref, dry_run, verbose, llm_backend)
+        _run_ingest(config, incremental, no_llm, no_crossref, dry_run, verbose, quiet, workers, only_pattern, llm_backend)
 
 
 def _run_ingest(
@@ -246,6 +254,9 @@ def _run_ingest(
     no_crossref: bool,
     dry_run: bool,
     verbose: bool,
+    quiet: bool,
+    workers: int,
+    only_pattern: str | None,
     llm_backend: str | None,
 ) -> None:
     from .config import load_config
@@ -282,6 +293,9 @@ def _run_ingest(
         dry_run=dry_run,
         verbose=verbose,
         no_crossref=no_crossref,
+        quiet=quiet,
+        workers=workers,
+        only_pattern=only_pattern,
     )
 
     _safe_rule()
