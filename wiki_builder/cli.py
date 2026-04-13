@@ -222,6 +222,10 @@ def init(
               help="Parallel LLM workers. Use 2-4 to speed up large runs.")
 @click.option("--only", "only_pattern", default=None, type=str,
               help="Only process files matching this glob, e.g. '*.pdf' or 'NEM/*'.")
+@click.option("--max-files", default=None, type=int,
+              help="Stop after writing this many articles. Useful for budget control.")
+@click.option("--since-days", default=None, type=int,
+              help="Only process files modified within the last N days.")
 @click.option("--llm-backend", default=None, type=str,
               help="Override LLM backend from config (claude-api, openai-compat, claude-code).")
 @click.option("--log-file", default=None, type=click.Path(),
@@ -236,15 +240,17 @@ def ingest(
     quiet: bool,
     workers: int,
     only_pattern: str | None,
+    max_files: int | None,
+    since_days: int | None,
     llm_backend: str | None,
     log_file: str | None,
 ) -> None:
     """Process source files and write wiki articles."""
     if log_file:
         with _tee_output(Path(log_file)):
-            _run_ingest(config, incremental, no_llm, no_crossref, dry_run, verbose, quiet, workers, only_pattern, llm_backend)
+            _run_ingest(config, incremental, no_llm, no_crossref, dry_run, verbose, quiet, workers, only_pattern, max_files, since_days, llm_backend)
     else:
-        _run_ingest(config, incremental, no_llm, no_crossref, dry_run, verbose, quiet, workers, only_pattern, llm_backend)
+        _run_ingest(config, incremental, no_llm, no_crossref, dry_run, verbose, quiet, workers, only_pattern, max_files, since_days, llm_backend)
 
 
 def _run_ingest(
@@ -257,6 +263,8 @@ def _run_ingest(
     quiet: bool,
     workers: int,
     only_pattern: str | None,
+    max_files: int | None,
+    since_days: int | None,
     llm_backend: str | None,
 ) -> None:
     from .config import load_config
@@ -296,6 +304,8 @@ def _run_ingest(
         quiet=quiet,
         workers=workers,
         only_pattern=only_pattern,
+        max_files=max_files,
+        since_days=since_days,
     )
 
     _safe_rule()

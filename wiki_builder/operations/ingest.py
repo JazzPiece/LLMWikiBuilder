@@ -15,7 +15,7 @@ import threading
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from ..config import WikiConfig
@@ -262,6 +262,8 @@ def run_ingest(
     quiet: bool = False,
     workers: int = 1,
     only_pattern: str | None = None,
+    max_files: int | None = None,
+    since_days: int | None = None,
 ) -> IngestResult:
     """
     Full ingest pipeline:
@@ -325,8 +327,12 @@ def run_ingest(
         changed_files: list[str] = []
 
         # --- Per-file processing ---
-        # Step 1: pre-filter — only-pattern, path-length, needs_extraction checks
+        # Step 1: pre-filter — only-pattern, since-days, path-length, needs_extraction checks
         files_to_process: list[tuple[Path, Path]] = []
+        since_cutoff = (
+            (datetime.now() - timedelta(days=since_days)).timestamp()
+            if since_days is not None else None
+        )
 
         for source_file in valid_files:
             result.total_files += 1
@@ -334,6 +340,14 @@ def run_ingest(
             if only_pattern and not _matches_only_pattern(source_file, source_root, only_pattern):
                 result.articles_skipped += 1
                 continue
+
+            if since_cutoff is not None:
+                try:
+                    if source_file.stat().st_mtime < since_cutoff:
+                        result.articles_skipped += 1
+                        continue
+                except Exception:
+                    pass
 
             wiki_file = article_wiki_path(source_file, wiki_dir)
 
@@ -361,6 +375,14 @@ def run_ingest(
                 continue
 
             files_to_process.append((source_file, wiki_file))
+
+        # Apply --max-files cap: truncate this directory's batch if needed
+        if max_files is not None:
+            remaining = max_files - result.articles_written
+            if remaining <= 0:
+                files_to_process = []
+            elif len(files_to_process) > remaining:
+                files_to_process = files_to_process[:remaining]
 
         # Step 2: extract + summarize, then write articles (main thread handles state/IO)
         print_lock = threading.Lock()
@@ -442,6 +464,14 @@ def run_ingest(
                     if verbose:
                         traceback.print_exc()
                     result.errors += 1
+
+        # Early exit if --max-files cap reached
+        if max_files is not None and result.articles_written >= max_files:
+            if not quiet:
+                print(f"\n[max-files] Reached limit of {max_files} — stopping.", flush=True)
+            if not dry_run:
+                state.save()
+            break
 
         # --- Detect deleted files ---
         current_keys = {str(f) for f in valid_files}
